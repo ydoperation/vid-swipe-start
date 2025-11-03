@@ -6,7 +6,7 @@ import { CommentSheet } from "@/components/CommentSheet";
 import { UploadModal } from "@/components/UploadModal";
 import { ProfileView } from "@/components/ProfileView";
 import { DiscoverView } from "@/components/DiscoverView";
-import { UnifiedSettingsView } from "@/components/UnifiedSettingsView";
+import { SettingsView } from "@/components/SettingsView";
 import MessagesView from "@/components/MessagesView";
 import { LiveStreamView } from "@/components/LiveStreamView";
 import { PvPBattleView } from "@/components/PvPBattleView";
@@ -98,7 +98,7 @@ const Index = () => {
       case "profile":
         return <ProfileView />;
       case "settings":
-        return <UnifiedSettingsView onBack={() => setActiveTab('profile')} />;
+        return <SettingsView onBack={() => setActiveTab('profile')} />;
       case "shop":
         return <ShopView />;
       default:
