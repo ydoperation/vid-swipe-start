@@ -10,7 +10,7 @@ import { SettingsView } from "@/components/SettingsView";
 import MessagesView from "@/components/MessagesView";
 import { LiveStreamView } from "@/components/LiveStreamView";
 import { PvPBattleView } from "@/components/PvPBattleView";
-import { ShopView } from "@/components/ShopView";
+
 import { mockVideos } from "@/data/mockData";
 import { useAuth } from "@/hooks/useAuth";
 import { Loader2 } from "lucide-react";
@@ -45,7 +45,7 @@ const Index = () => {
   // Listen for settings navigation from ProfileView
   useEffect(() => {
     const handleNavigate = (e: CustomEvent) => {
-      if (e.detail === 'settings' || e.detail === 'shop') {
+      if (e.detail === 'settings') {
         setActiveTab(e.detail);
       }
     };
@@ -99,8 +99,6 @@ const Index = () => {
         return <ProfileView />;
       case "settings":
         return <SettingsView onBack={() => setActiveTab('profile')} />;
-      case "shop":
-        return <ShopView />;
       default:
         return null;
     }
