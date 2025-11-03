@@ -13,6 +13,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { formatNumber } from "@/lib/utils";
 import { LiveChatBox } from "./LiveChatBox";
+import { liveStreamSchema } from "@/lib/validation";
 
 interface GiftOption {
   id: string;
@@ -143,8 +144,19 @@ export const LiveStreamView: React.FC = () => {
   };
 
   const startStream = async () => {
-    if (!user || !streamTitle) {
-      toast.error("Please enter a stream title");
+    if (!user) {
+      toast.error("Please log in to start streaming");
+      return;
+    }
+
+    // Validate stream data
+    const validation = liveStreamSchema.safeParse({
+      title: streamTitle,
+      description: streamDescription
+    });
+
+    if (!validation.success) {
+      toast.error(validation.error.issues[0].message);
       return;
     }
 
@@ -153,8 +165,8 @@ export const LiveStreamView: React.FC = () => {
       .from('live_streams')
       .insert({
         user_id: user.id,
-        title: streamTitle,
-        description: streamDescription,
+        title: validation.data.title,
+        description: validation.data.description || null,
         is_live: true,
         viewer_count: 0,
         started_at: new Date().toISOString()

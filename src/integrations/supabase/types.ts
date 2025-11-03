@@ -875,7 +875,7 @@ export type Database = {
     }
     Functions: {
       get_public_live_streams: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
           created_at: string
           description: string
@@ -890,7 +890,7 @@ export type Database = {
         }[]
       }
       get_user_conversations: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
           conversation_id: string
           created_at: string
@@ -910,8 +910,9 @@ export type Database = {
         }
         Returns: boolean
       }
-      is_admin: {
-        Args: { _user_id: string }
+      is_admin: { Args: { _user_id: string }; Returns: boolean }
+      owns_stream: {
+        Args: { _stream_id: string; _user_id: string }
         Returns: boolean
       }
     }

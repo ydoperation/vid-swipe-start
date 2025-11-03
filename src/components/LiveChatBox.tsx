@@ -7,6 +7,7 @@ import { Send, UserPlus, UserMinus, Gift } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
+import { chatMessageSchema } from "@/lib/validation";
 
 interface ChatMessage {
   id: string;
@@ -183,14 +184,21 @@ export const LiveChatBox: React.FC<LiveChatBoxProps> = ({ streamId }) => {
   };
 
   const sendMessage = async () => {
-    if (!newMessage.trim() || !user) return;
+    if (!user) return;
+
+    // Validate message
+    const validation = chatMessageSchema.safeParse({ message: newMessage });
+    if (!validation.success) {
+      toast.error(validation.error.issues[0].message);
+      return;
+    }
 
     const { error } = await supabase
       .from('stream_chat_messages')
       .insert({
         stream_id: streamId,
         user_id: user.id,
-        message: newMessage.trim()
+        message: validation.data.message
       });
 
     if (error) {

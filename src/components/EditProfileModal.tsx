@@ -9,6 +9,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { profileSchema } from "@/lib/validation";
 
 interface EditProfileModalProps {
   isOpen: boolean;
@@ -108,17 +109,38 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
     setLoading(true);
 
     try {
+      // Validate profile data
+      const validation = profileSchema.safeParse({
+        username: formData.username,
+        display_name: formData.display_name,
+        bio: formData.bio,
+        instagram_url: formData.instagram_url || "",
+        youtube_url: formData.youtube_url || "",
+        twitter_url: formData.twitter_url || "",
+        website_url: formData.website_url || "",
+      });
+
+      if (!validation.success) {
+        toast({
+          title: "Validation Error",
+          description: validation.error.issues[0].message,
+          variant: "destructive",
+        });
+        setLoading(false);
+        return;
+      }
+
       const { error } = await supabase
         .from("profiles")
         .update({
-          username: formData.username,
-          display_name: formData.display_name,
-          bio: formData.bio,
+          username: validation.data.username,
+          display_name: validation.data.display_name || validation.data.username,
+          bio: validation.data.bio || null,
           avatar_url: formData.avatar_url,
-          instagram_url: formData.instagram_url,
-          youtube_url: formData.youtube_url,
-          twitter_url: formData.twitter_url,
-          website_url: formData.website_url,
+          instagram_url: validation.data.instagram_url || null,
+          youtube_url: validation.data.youtube_url || null,
+          twitter_url: validation.data.twitter_url || null,
+          website_url: validation.data.website_url || null,
         })
         .eq("id", user.id);
 
