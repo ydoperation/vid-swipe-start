@@ -1,1 +1,13 @@
 project_id = "thnmzqgpidkhgnqawagf"
+
+[functions.moderate-video]
+verify_jwt = true
+
+[functions.manage-stream]
+verify_jwt = true
+
+[functions.manage-gift]
+verify_jwt = true
+
+[functions.manage-user-role]
+verify_jwt = true

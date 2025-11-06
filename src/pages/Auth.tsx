@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { User } from "@supabase/supabase-js";
 import { Loader2, Mail } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
+import { signUpSchema, loginSchema } from "@/lib/validation";
 
 const Auth: React.FC = () => {
   const navigate = useNavigate();
@@ -54,6 +55,19 @@ const Auth: React.FC = () => {
     e.preventDefault();
     setLoading(true);
     
+    // Validate with zod schema
+    const validation = loginSchema.safeParse({
+      email: loginEmail,
+      password: loginPassword,
+    });
+
+    if (!validation.success) {
+      const errors = validation.error.issues.map(i => i.message).join(', ');
+      toast.error(errors);
+      setLoading(false);
+      return;
+    }
+    
     const { error } = await supabase.auth.signInWithPassword({
       email: loginEmail,
       password: loginPassword,
@@ -89,33 +103,17 @@ const Auth: React.FC = () => {
     e.preventDefault();
     setLoading(true);
     
-    // Validate password strength
-    if (signupPassword.length < 8) {
-      toast.error("Password must be at least 8 characters long");
-      setLoading(false);
-      return;
-    }
-    
-    if (!/[A-Z]/.test(signupPassword)) {
-      toast.error("Password must contain at least one uppercase letter");
-      setLoading(false);
-      return;
-    }
-    
-    if (!/[a-z]/.test(signupPassword)) {
-      toast.error("Password must contain at least one lowercase letter");
-      setLoading(false);
-      return;
-    }
-    
-    if (!/[0-9]/.test(signupPassword)) {
-      toast.error("Password must contain at least one number");
-      setLoading(false);
-      return;
-    }
-    
-    if (!/[!@#$%^&*(),.?":{}|<>]/.test(signupPassword)) {
-      toast.error("Password must contain at least one special character");
+    // Validate with zod schema
+    const validation = signUpSchema.safeParse({
+      email: signupEmail,
+      password: signupPassword,
+      username: signupUsername,
+      display_name: signupDisplayName || signupUsername,
+    });
+
+    if (!validation.success) {
+      const errors = validation.error.issues.map(i => i.message).join(', ');
+      toast.error(errors);
       setLoading(false);
       return;
     }

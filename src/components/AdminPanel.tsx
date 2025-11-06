@@ -137,37 +137,37 @@ export const AdminPanel: React.FC = () => {
   };
 
   const moderateVideo = async (videoId: string, action: 'approve' | 'remove') => {
-    if (action === 'remove') {
-      const { error } = await supabase
-        .from('videos')
-        .update({ is_published: false })
-        .eq('id', videoId);
+    try {
+      const { data, error } = await supabase.functions.invoke('moderate-video', {
+        body: { 
+          videoId, 
+          action: action === 'remove' ? 'unpublish' : 'publish' 
+        }
+      });
 
-      if (error) {
-        toast.error("Failed to remove video");
-      } else {
-        toast.success("Video removed");
-        fetchReportedContent();
-      }
-    } else {
-      toast.success("Video approved");
+      if (error) throw error;
+
+      toast.success(action === 'remove' ? "Video removed" : "Video approved");
+      fetchReportedContent();
+    } catch (error: any) {
+      console.error('Moderation error:', error);
+      toast.error(error.message || "Failed to moderate video");
     }
   };
 
   const endLiveStream = async (streamId: string) => {
-    const { error } = await supabase
-      .from('live_streams')
-      .update({ 
-        is_live: false,
-        ended_at: new Date().toISOString()
-      })
-      .eq('id', streamId);
+    try {
+      const { data, error } = await supabase.functions.invoke('manage-stream', {
+        body: { streamId, action: 'end' }
+      });
 
-    if (error) {
-      toast.error("Failed to end stream");
-    } else {
+      if (error) throw error;
+
       toast.success("Stream ended");
       fetchLiveStreams();
+    } catch (error: any) {
+      console.error('Stream management error:', error);
+      toast.error(error.message || "Failed to end stream");
     }
   };
 
@@ -177,35 +177,45 @@ export const AdminPanel: React.FC = () => {
       return;
     }
 
-    const { error } = await supabase
-      .from('gifts')
-      .insert({
-        name: newGift.name,
-        price: parseFloat(newGift.price),
-        icon_url: newGift.icon_url,
-        is_active: true
+    try {
+      const { data, error } = await supabase.functions.invoke('manage-gift', {
+        body: { 
+          action: 'create',
+          giftData: {
+            name: newGift.name,
+            price: parseFloat(newGift.price),
+            icon: newGift.icon_url || '🎁'
+          }
+        }
       });
 
-    if (error) {
-      toast.error("Failed to add gift");
-    } else {
+      if (error) throw error;
+
       toast.success("Gift added successfully");
       setNewGift({ name: '', price: '', icon_url: '' });
       fetchGifts();
+    } catch (error: any) {
+      console.error('Gift management error:', error);
+      toast.error(error.message || "Failed to add gift");
     }
   };
 
   const toggleGift = async (giftId: string, isActive: boolean) => {
-    const { error } = await supabase
-      .from('gifts')
-      .update({ is_active: !isActive })
-      .eq('id', giftId);
+    try {
+      const { data, error } = await supabase.functions.invoke('manage-gift', {
+        body: { 
+          action: 'toggle',
+          giftId
+        }
+      });
 
-    if (error) {
-      toast.error("Failed to update gift");
-    } else {
+      if (error) throw error;
+
       toast.success(`Gift ${!isActive ? 'activated' : 'deactivated'}`);
       fetchGifts();
+    } catch (error: any) {
+      console.error('Gift toggle error:', error);
+      toast.error(error.message || "Failed to update gift");
     }
   };
 
@@ -224,40 +234,32 @@ export const AdminPanel: React.FC = () => {
   };
 
   const toggleUserRole = async (userId: string, role: 'admin' | 'moderator') => {
-    // Check if role exists
-    const { data: existingRole } = await supabase
-      .from('user_roles')
-      .select('*')
-      .eq('user_id', userId)
-      .eq('role', role)
-      .maybeSingle();
-
-    if (existingRole) {
-      // Remove role
-      const { error } = await supabase
+    try {
+      // Check if role exists
+      const { data: existingRole } = await supabase
         .from('user_roles')
-        .delete()
+        .select('*')
         .eq('user_id', userId)
-        .eq('role', role);
+        .eq('role', role)
+        .maybeSingle();
 
-      if (error) {
-        toast.error("Failed to remove role");
-      } else {
-        toast.success(`${role} role removed`);
-        fetchUsers();
-      }
-    } else {
-      // Add role
-      const { error } = await supabase
-        .from('user_roles')
-        .insert({ user_id: userId, role });
+      const action = existingRole ? 'remove' : 'assign';
+      
+      const { data, error } = await supabase.functions.invoke('manage-user-role', {
+        body: { 
+          action,
+          targetUserId: userId,
+          role: action === 'assign' ? role : undefined
+        }
+      });
 
-      if (error) {
-        toast.error("Failed to add role");
-      } else {
-        toast.success(`${role} role granted`);
-        fetchUsers();
-      }
+      if (error) throw error;
+
+      toast.success(action === 'remove' ? `${role} role removed` : `${role} role granted`);
+      fetchUsers();
+    } catch (error: any) {
+      console.error('User role error:', error);
+      toast.error(error.message || "Failed to update user role");
     }
   };
 
