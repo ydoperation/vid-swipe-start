@@ -97,8 +97,32 @@ export const loginSchema = z.object({
     .min(1, 'Password is required')
 });
 
+// Report validation
+export const reportSchema = z.object({
+  reported_item_type: z.enum(['video', 'profile', 'comment', 'live_stream']),
+  reported_item_id: z.string()
+    .uuid('Invalid item ID'),
+  reason: z.enum([
+    'spam',
+    'harassment',
+    'hate_speech',
+    'violence',
+    'nudity',
+    'misinformation',
+    'copyright',
+    'self_harm',
+    'illegal_content',
+    'other'
+  ]),
+  description: z.string()
+    .trim()
+    .max(1000, 'Description must be less than 1000 characters')
+    .optional()
+});
+
 export type ChatMessage = z.infer<typeof chatMessageSchema>;
 export type ProfileData = z.infer<typeof profileSchema>;
 export type LiveStreamData = z.infer<typeof liveStreamSchema>;
 export type SignUpData = z.infer<typeof signUpSchema>;
 export type LoginData = z.infer<typeof loginSchema>;
+export type ReportData = z.infer<typeof reportSchema>;

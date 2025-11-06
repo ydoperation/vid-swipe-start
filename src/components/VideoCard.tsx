@@ -1,9 +1,10 @@
 import React, { useState, useRef, useEffect } from "react";
-import { Heart, MessageCircle, Share2, Bookmark } from "lucide-react";
+import { Heart, MessageCircle, Share2, Bookmark, Flag } from "lucide-react";
 import { Video } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { formatNumber } from "@/lib/utils";
+import { ReportModal } from "@/components/ReportModal";
 
 interface VideoCardProps {
   video: Video;
@@ -19,6 +20,7 @@ export const VideoCard: React.FC<VideoCardProps> = ({
   const [isLiked, setIsLiked] = useState(video.isLiked || false);
   const [likes, setLikes] = useState(video.likes);
   const [isFollowing, setIsFollowing] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
@@ -155,9 +157,26 @@ export const VideoCard: React.FC<VideoCardProps> = ({
             <Button variant="icon" size="icon" className="h-12 w-12">
               <Bookmark className="h-6 w-6 text-white" />
             </Button>
+
+            <Button
+              variant="icon"
+              size="icon"
+              className="h-12 w-12"
+              onClick={() => setShowReportModal(true)}
+            >
+              <Flag className="h-6 w-6 text-white" />
+            </Button>
           </div>
         </div>
       </div>
+
+      <ReportModal
+        isOpen={showReportModal}
+        onClose={() => setShowReportModal(false)}
+        itemType="video"
+        itemId={video.id}
+        itemTitle={video.caption}
+      />
     </div>
   );
 };

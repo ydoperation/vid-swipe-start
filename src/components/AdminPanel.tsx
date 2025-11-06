@@ -22,6 +22,7 @@ interface Analytics {
   activeLiveStreams: number;
   totalGifts: number;
   reportedContent: number;
+  pendingReports: number;
 }
 
 export const AdminPanel: React.FC = () => {
@@ -32,7 +33,8 @@ export const AdminPanel: React.FC = () => {
     totalVideos: 0,
     activeLiveStreams: 0,
     totalGifts: 0,
-    reportedContent: 0
+    reportedContent: 0,
+    pendingReports: 0
   });
   const [reportedVideos, setReportedVideos] = useState<any[]>([]);
   const [liveStreams, setLiveStreams] = useState<any[]>([]);
@@ -40,6 +42,8 @@ export const AdminPanel: React.FC = () => {
   const [newGift, setNewGift] = useState({ name: '', price: '', icon_url: '' });
   const [users, setUsers] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [reports, setReports] = useState<any[]>([]);
+  const [reportFilter, setReportFilter] = useState<string>('pending');
 
   useEffect(() => {
     checkAdminStatus();
@@ -52,6 +56,7 @@ export const AdminPanel: React.FC = () => {
       fetchLiveStreams();
       fetchGifts();
       fetchUsers();
+      fetchReports();
     }
   }, [isAdmin]);
 
@@ -93,12 +98,19 @@ export const AdminPanel: React.FC = () => {
 
     const totalGifts = giftData?.reduce((sum, gift) => sum + Number(gift.total_price), 0) || 0;
 
+    // Fetch pending reports count
+    const { count: pendingReportsCount } = await supabase
+      .from('reports')
+      .select('*', { count: 'exact', head: true })
+      .eq('status', 'pending');
+
     setAnalytics({
       totalUsers: userCount || 0,
       totalVideos: videoCount || 0,
       activeLiveStreams: liveCount || 0,
       totalGifts,
-      reportedContent: 0 // This would come from a reports table
+      reportedContent: pendingReportsCount || 0,
+      pendingReports: pendingReportsCount || 0
     });
   };
 
@@ -268,6 +280,44 @@ export const AdminPanel: React.FC = () => {
     user.display_name?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  const fetchReports = async () => {
+    const { data } = await supabase
+      .from('reports')
+      .select(`
+        *,
+        reporter:reporter_id (username, display_name),
+        reviewer:reviewed_by (username, display_name)
+      `)
+      .order('created_at', { ascending: false });
+
+    setReports(data || []);
+  };
+
+  const updateReportStatus = async (reportId: string, status: string, resolutionNote?: string) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    const { error } = await supabase
+      .from('reports')
+      .update({
+        status,
+        reviewed_by: user?.id,
+        reviewed_at: new Date().toISOString(),
+        resolution_note: resolutionNote || null,
+      })
+      .eq('id', reportId);
+
+    if (error) {
+      toast.error("Failed to update report");
+    } else {
+      toast.success(`Report ${status}`);
+      fetchReports();
+    }
+  };
+
+  const filteredReports = reports.filter(report => 
+    reportFilter === 'all' || report.status === reportFilter
+  );
+
   if (!isAdmin) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -352,14 +402,124 @@ export const AdminPanel: React.FC = () => {
         </div>
 
         {/* Management Tabs */}
-        <Tabs defaultValue="moderation" className="space-y-4">
-          <TabsList className="grid grid-cols-5 w-full">
-            <TabsTrigger value="moderation">Content Moderation</TabsTrigger>
+        <Tabs defaultValue="reports" className="space-y-4">
+          <TabsList className="grid grid-cols-6 w-full">
+            <TabsTrigger value="reports">Reports</TabsTrigger>
+            <TabsTrigger value="moderation">Moderation</TabsTrigger>
             <TabsTrigger value="live">Live Streams</TabsTrigger>
-            <TabsTrigger value="gifts">Gift Management</TabsTrigger>
-            <TabsTrigger value="users">User Settings</TabsTrigger>
+            <TabsTrigger value="gifts">Gifts</TabsTrigger>
+            <TabsTrigger value="users">Users</TabsTrigger>
             <TabsTrigger value="analytics">Analytics</TabsTrigger>
           </TabsList>
+
+          {/* Reports Tab */}
+          <TabsContent value="reports" className="space-y-4">
+            <Card className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-semibold">Content Reports</h2>
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    variant={reportFilter === 'all' ? 'default' : 'outline'}
+                    onClick={() => setReportFilter('all')}
+                  >
+                    All
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant={reportFilter === 'pending' ? 'default' : 'outline'}
+                    onClick={() => setReportFilter('pending')}
+                  >
+                    Pending
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant={reportFilter === 'under_review' ? 'default' : 'outline'}
+                    onClick={() => setReportFilter('under_review')}
+                  >
+                    Under Review
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant={reportFilter === 'resolved' ? 'default' : 'outline'}
+                    onClick={() => setReportFilter('resolved')}
+                  >
+                    Resolved
+                  </Button>
+                </div>
+              </div>
+              
+              <ScrollArea className="h-[500px]">
+                <div className="space-y-4">
+                  {filteredReports.map((report) => (
+                    <div key={report.id} className="border rounded-lg p-4 space-y-3">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-2">
+                            <Badge variant={
+                              report.status === 'pending' ? 'destructive' :
+                              report.status === 'under_review' ? 'default' :
+                              report.status === 'resolved' ? 'secondary' : 'outline'
+                            }>
+                              {report.status.replace('_', ' ').toUpperCase()}
+                            </Badge>
+                            <Badge variant="outline">{report.reported_item_type}</Badge>
+                            <Badge variant="outline">{report.reason.replace('_', ' ')}</Badge>
+                          </div>
+                          <p className="text-sm">
+                            <span className="font-semibold">Reported by:</span> @{report.reporter?.username}
+                          </p>
+                          {report.description && (
+                            <p className="text-sm text-muted-foreground mt-1">{report.description}</p>
+                          )}
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Reported {new Date(report.created_at).toLocaleString()}
+                          </p>
+                          {report.reviewed_by && (
+                            <p className="text-xs text-muted-foreground">
+                              Reviewed by @{report.reviewer?.username} on {new Date(report.reviewed_at).toLocaleString()}
+                            </p>
+                          )}
+                        </div>
+                        
+                        {report.status === 'pending' && (
+                          <div className="flex gap-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => updateReportStatus(report.id, 'under_review')}
+                            >
+                              Review
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="default"
+                              onClick={() => updateReportStatus(report.id, 'resolved', 'Action taken')}
+                            >
+                              Resolve
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              onClick={() => updateReportStatus(report.id, 'dismissed', 'No violation found')}
+                            >
+                              Dismiss
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                  
+                  {filteredReports.length === 0 && (
+                    <div className="text-center py-8 text-muted-foreground">
+                      No reports found
+                    </div>
+                  )}
+                </div>
+              </ScrollArea>
+            </Card>
+          </TabsContent>
 
           {/* Content Moderation */}
           <TabsContent value="moderation" className="space-y-4">

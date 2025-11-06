@@ -1,12 +1,19 @@
 import React, { useState, useEffect } from "react";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, MessageCircle, UserPlus, UserMinus, Share2, MoreVertical } from "lucide-react";
+import { ArrowLeft, MessageCircle, UserPlus, UserMinus, Share2, Flag, MoreVertical } from "lucide-react";
 import { formatNumber } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { ReportModal } from "@/components/ReportModal";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface UserProfileViewProps {
   userId: string;
@@ -22,6 +29,7 @@ export const UserProfileView: React.FC<UserProfileViewProps> = ({ userId, onBack
   const [following, setFollowing] = useState(0);
   const [isFollowing, setIsFollowing] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [showReportModal, setShowReportModal] = useState(false);
 
   useEffect(() => {
     loadProfile();
@@ -123,9 +131,19 @@ export const UserProfileView: React.FC<UserProfileViewProps> = ({ userId, onBack
             <ArrowLeft className="w-5 h-5" />
           </Button>
           <h2 className="font-semibold">@{profile.username}</h2>
-          <Button size="icon" variant="ghost">
-            <MoreVertical className="w-5 h-5" />
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button size="icon" variant="ghost">
+                <MoreVertical className="w-5 h-5" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => setShowReportModal(true)}>
+                <Flag className="w-4 h-4 mr-2" />
+                Report User
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 
@@ -228,6 +246,14 @@ export const UserProfileView: React.FC<UserProfileViewProps> = ({ userId, onBack
           </div>
         )}
       </div>
+
+      <ReportModal
+        isOpen={showReportModal}
+        onClose={() => setShowReportModal(false)}
+        itemType="profile"
+        itemId={userId}
+        itemTitle={`@${profile.username}`}
+      />
     </div>
   );
 };
