@@ -79,6 +79,23 @@ export const ReportModal: React.FC<ReportModalProps> = ({
         return;
       }
 
+      // Check rate limit: max 10 reports per user per hour
+      const oneHourAgo = new Date(Date.now() - 3600000).toISOString();
+      const { count, error: countError } = await supabase
+        .from('reports')
+        .select('*', { count: 'exact', head: true })
+        .eq('reporter_id', user.id)
+        .gte('created_at', oneHourAgo);
+
+      if (countError) {
+        console.error('Error checking rate limit:', countError);
+      }
+
+      if (count !== null && count >= 10) {
+        toast.error('Rate limit exceeded. You can only submit 10 reports per hour. Please try again later.');
+        return;
+      }
+
       // Submit report
       const { error } = await supabase.from('reports').insert({
         reporter_id: user.id,
