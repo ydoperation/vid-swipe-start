@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { 
   ArrowLeft, User, Lock, Bell, Video, Shield, 
   Moon, Sun, Monitor, LogOut, ChevronRight,
-  Users, Gift, Ban, Edit, Mail, Loader2
+  Users, Gift, Ban, Edit, Mail, Loader2, Upload, Camera
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -14,6 +14,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
@@ -57,8 +58,17 @@ export const SettingsView = ({ onBack }: { onBack: () => void }) => {
     website_url: "",
     instagram_url: "",
     twitter_url: "",
-    youtube_url: ""
+    youtube_url: "",
+    avatar_url: ""
   });
+  
+  // Password change state
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  
+  // Avatar upload state
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -142,8 +152,127 @@ export const SettingsView = ({ onBack }: { onBack: () => void }) => {
         website_url: data.website_url || "",
         instagram_url: data.instagram_url || "",
         twitter_url: data.twitter_url || "",
-        youtube_url: data.youtube_url || ""
+        youtube_url: data.youtube_url || "",
+        avatar_url: data.avatar_url || ""
       });
+    }
+  };
+
+  const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (!user || !event.target.files || event.target.files.length === 0) return;
+    
+    const file = event.target.files[0];
+    
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please upload an image file');
+      return;
+    }
+    
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Image size must be less than 5MB');
+      return;
+    }
+    
+    setUploadingAvatar(true);
+    
+    try {
+      // Delete old avatar if exists
+      if (profile.avatar_url) {
+        const oldPath = profile.avatar_url.split('/').pop();
+        if (oldPath) {
+          await supabase.storage.from('avatars').remove([`${user.id}/${oldPath}`]);
+        }
+      }
+      
+      // Upload new avatar
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${user.id}-${Date.now()}.${fileExt}`;
+      const filePath = `${user.id}/${fileName}`;
+      
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(filePath, file);
+      
+      if (uploadError) throw uploadError;
+      
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(filePath);
+      
+      // Update profile with new avatar URL
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ avatar_url: publicUrl })
+        .eq('id', user.id);
+      
+      if (updateError) throw updateError;
+      
+      setProfile({ ...profile, avatar_url: publicUrl });
+      toast.success('Avatar updated successfully!');
+    } catch (error: any) {
+      console.error('Error uploading avatar:', error);
+      toast.error(error.message || 'Failed to upload avatar');
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
+
+  const handleChangePassword = async () => {
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      toast.error('Please fill in all password fields');
+      return;
+    }
+    
+    if (newPassword !== confirmPassword) {
+      toast.error('New passwords do not match');
+      return;
+    }
+    
+    // Validate new password
+    const passwordSchema = z.string()
+      .min(8, 'Password must be at least 8 characters')
+      .regex(/[A-Z]/, 'Password must contain at least one uppercase letter')
+      .regex(/[a-z]/, 'Password must contain at least one lowercase letter')
+      .regex(/[0-9]/, 'Password must contain at least one number');
+    
+    const validation = passwordSchema.safeParse(newPassword);
+    if (!validation.success) {
+      toast.error(validation.error.issues[0].message);
+      return;
+    }
+    
+    setIsUpdating(true);
+    
+    try {
+      // Verify current password by attempting to sign in
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: user?.email || '',
+        password: currentPassword
+      });
+      
+      if (signInError) {
+        toast.error('Current password is incorrect');
+        return;
+      }
+      
+      // Update password
+      const { error } = await supabase.auth.updateUser({
+        password: newPassword
+      });
+      
+      if (error) throw error;
+      
+      toast.success('Password changed successfully!');
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to change password');
+    } finally {
+      setIsUpdating(false);
     }
   };
 
@@ -246,11 +375,14 @@ export const SettingsView = ({ onBack }: { onBack: () => void }) => {
           <Card className="overflow-hidden">
             <div className="p-4">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-primary/10 rounded-full">
-                  <User className="h-5 w-5 text-primary" />
-                </div>
+                <Avatar className="h-12 w-12">
+                  <AvatarImage src={profile.avatar_url} />
+                  <AvatarFallback>
+                    <User className="h-6 w-6" />
+                  </AvatarFallback>
+                </Avatar>
                 <div className="flex-1">
-                  <p className="font-semibold">Account</p>
+                  <p className="font-semibold">{profile.display_name || profile.username || 'Account'}</p>
                   <p className="text-sm text-muted-foreground">{user?.email}</p>
                 </div>
                 <Button
@@ -438,6 +570,120 @@ export const SettingsView = ({ onBack }: { onBack: () => void }) => {
           </DialogHeader>
 
           <div className="space-y-6 py-4">
+            {/* Avatar Section */}
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <Camera className="h-4 w-4 text-primary" />
+                <h3 className="font-semibold">Profile Picture</h3>
+              </div>
+              <div className="flex items-center gap-4">
+                <Avatar className="h-20 w-20">
+                  <AvatarImage src={profile.avatar_url} />
+                  <AvatarFallback>
+                    <User className="h-10 w-10" />
+                  </AvatarFallback>
+                </Avatar>
+                <div className="flex-1">
+                  <Input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleAvatarUpload}
+                    disabled={uploadingAvatar}
+                    className="hidden"
+                    id="avatar-upload"
+                  />
+                  <Label htmlFor="avatar-upload">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={uploadingAvatar}
+                      onClick={() => document.getElementById('avatar-upload')?.click()}
+                    >
+                      {uploadingAvatar ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Uploading...
+                        </>
+                      ) : (
+                        <>
+                          <Upload className="h-4 w-4 mr-2" />
+                          Upload Photo
+                        </>
+                      )}
+                    </Button>
+                  </Label>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    JPG, PNG or WEBP. Max 5MB.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <Separator />
+
+            {/* Password Section */}
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <Lock className="h-4 w-4 text-primary" />
+                <h3 className="font-semibold">Change Password</h3>
+              </div>
+              <div className="space-y-3">
+                <div className="space-y-2">
+                  <Label htmlFor="current-password">Current Password</Label>
+                  <Input
+                    id="current-password"
+                    type="password"
+                    value={currentPassword}
+                    onChange={(e) => setCurrentPassword(e.target.value)}
+                    placeholder="Enter current password"
+                    disabled={isUpdating}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="new-password">New Password</Label>
+                  <Input
+                    id="new-password"
+                    type="password"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="Enter new password"
+                    disabled={isUpdating}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    At least 8 characters with uppercase, lowercase, and numbers
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="confirm-password">Confirm New Password</Label>
+                  <Input
+                    id="confirm-password"
+                    type="password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder="Confirm new password"
+                    disabled={isUpdating}
+                  />
+                </div>
+              </div>
+              <Button
+                onClick={handleChangePassword}
+                disabled={isUpdating || !currentPassword || !newPassword || !confirmPassword}
+                size="sm"
+              >
+                {isUpdating ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Changing...
+                  </>
+                ) : (
+                  "Change Password"
+                )}
+              </Button>
+            </div>
+
+            <Separator />
+
             {/* Email Section */}
             <div className="space-y-3">
               <div className="flex items-center gap-2">
