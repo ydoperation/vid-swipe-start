@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { 
   ArrowLeft, User, Lock, Bell, Video, Shield, 
   Moon, Sun, Monitor, LogOut, ChevronRight,
-  Users, Gift, Ban
+  Users, Gift, Ban, Edit, Mail, Loader2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -10,11 +10,17 @@ import { Card } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { formatNumber } from "@/lib/utils";
+import { profileSchema } from "@/lib/validation";
+import { z } from "zod";
 
 interface UserSettings {
   theme: 'light' | 'dark' | 'system';
@@ -39,11 +45,27 @@ export const SettingsView = ({ onBack }: { onBack: () => void }) => {
     privacy_profile: 'public',
     two_factor_enabled: false
   });
+  
+  // Edit account state
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [newEmail, setNewEmail] = useState("");
+  const [profile, setProfile] = useState({
+    username: "",
+    display_name: "",
+    bio: "",
+    website_url: "",
+    instagram_url: "",
+    twitter_url: "",
+    youtube_url: ""
+  });
 
   useEffect(() => {
     if (user) {
       checkAdminStatus();
       loadSettings();
+      loadProfile();
+      setNewEmail(user.email || "");
     }
   }, [user]);
 
@@ -104,6 +126,97 @@ export const SettingsView = ({ onBack }: { onBack: () => void }) => {
     }
   };
 
+  const loadProfile = async () => {
+    if (!user) return;
+    const { data } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', user.id)
+      .single();
+    
+    if (data) {
+      setProfile({
+        username: data.username || "",
+        display_name: data.display_name || "",
+        bio: data.bio || "",
+        website_url: data.website_url || "",
+        instagram_url: data.instagram_url || "",
+        twitter_url: data.twitter_url || "",
+        youtube_url: data.youtube_url || ""
+      });
+    }
+  };
+
+  const handleUpdateEmail = async () => {
+    if (!user || !newEmail) return;
+    
+    const emailSchema = z.string().email("Invalid email address");
+    const validation = emailSchema.safeParse(newEmail);
+    
+    if (!validation.success) {
+      toast.error(validation.error.issues[0].message);
+      return;
+    }
+    
+    if (newEmail === user.email) {
+      toast.error("New email is the same as current email");
+      return;
+    }
+    
+    setIsUpdating(true);
+    
+    try {
+      const { error } = await supabase.auth.updateUser({ email: newEmail });
+      
+      if (error) throw error;
+      
+      toast.success("Email update initiated! Please check your new email to confirm the change.");
+    } catch (error: any) {
+      toast.error(error.message || "Failed to update email");
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  const handleUpdateProfile = async () => {
+    if (!user) return;
+    
+    // Validate with zod
+    const validation = profileSchema.safeParse(profile);
+    
+    if (!validation.success) {
+      const errors = validation.error.issues.map(i => i.message).join(', ');
+      toast.error(errors);
+      return;
+    }
+    
+    setIsUpdating(true);
+    
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          username: profile.username,
+          display_name: profile.display_name || profile.username,
+          bio: profile.bio || null,
+          website_url: profile.website_url || null,
+          instagram_url: profile.instagram_url || null,
+          twitter_url: profile.twitter_url || null,
+          youtube_url: profile.youtube_url || null
+        })
+        .eq('id', user.id);
+      
+      if (error) throw error;
+      
+      toast.success("Profile updated successfully!");
+      setShowEditDialog(false);
+    } catch (error: any) {
+      toast.error(error.message || "Failed to update profile");
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
   const handleSignOut = async () => {
     await signOut();
     navigate("/auth");
@@ -140,6 +253,13 @@ export const SettingsView = ({ onBack }: { onBack: () => void }) => {
                   <p className="font-semibold">Account</p>
                   <p className="text-sm text-muted-foreground">{user?.email}</p>
                 </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowEditDialog(true)}
+                >
+                  <Edit className="h-4 w-4" />
+                </Button>
               </div>
             </div>
           </Card>
@@ -306,6 +426,177 @@ export const SettingsView = ({ onBack }: { onBack: () => void }) => {
           </div>
         </div>
       </ScrollArea>
+
+      {/* Edit Account Dialog */}
+      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Account & Profile</DialogTitle>
+            <DialogDescription>
+              Update your email address and profile information
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-6 py-4">
+            {/* Email Section */}
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <Mail className="h-4 w-4 text-primary" />
+                <h3 className="font-semibold">Email Address</h3>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={newEmail}
+                  onChange={(e) => setNewEmail(e.target.value)}
+                  placeholder="your.email@example.com"
+                  disabled={isUpdating}
+                />
+                <p className="text-xs text-muted-foreground">
+                  You'll receive a confirmation email to verify the change
+                </p>
+              </div>
+              <Button
+                onClick={handleUpdateEmail}
+                disabled={isUpdating || newEmail === user?.email}
+                size="sm"
+              >
+                {isUpdating ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Updating...
+                  </>
+                ) : (
+                  "Update Email"
+                )}
+              </Button>
+            </div>
+
+            <Separator />
+
+            {/* Profile Section */}
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <User className="h-4 w-4 text-primary" />
+                <h3 className="font-semibold">Profile Information</h3>
+              </div>
+              
+              <div className="grid gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="username">Username *</Label>
+                  <Input
+                    id="username"
+                    value={profile.username}
+                    onChange={(e) => setProfile({ ...profile, username: e.target.value })}
+                    placeholder="username"
+                    disabled={isUpdating}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    3-30 characters, letters, numbers, and underscores only
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="display_name">Display Name</Label>
+                  <Input
+                    id="display_name"
+                    value={profile.display_name}
+                    onChange={(e) => setProfile({ ...profile, display_name: e.target.value })}
+                    placeholder="Your Name"
+                    disabled={isUpdating}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="bio">Bio</Label>
+                  <Textarea
+                    id="bio"
+                    value={profile.bio}
+                    onChange={(e) => setProfile({ ...profile, bio: e.target.value })}
+                    placeholder="Tell us about yourself..."
+                    className="min-h-[80px] resize-none"
+                    maxLength={500}
+                    disabled={isUpdating}
+                  />
+                  <p className="text-xs text-muted-foreground text-right">
+                    {profile.bio.length}/500 characters
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="website">Website URL</Label>
+                  <Input
+                    id="website"
+                    type="url"
+                    value={profile.website_url}
+                    onChange={(e) => setProfile({ ...profile, website_url: e.target.value })}
+                    placeholder="https://yourwebsite.com"
+                    disabled={isUpdating}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="instagram">Instagram URL</Label>
+                  <Input
+                    id="instagram"
+                    type="url"
+                    value={profile.instagram_url}
+                    onChange={(e) => setProfile({ ...profile, instagram_url: e.target.value })}
+                    placeholder="https://instagram.com/username"
+                    disabled={isUpdating}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="twitter">Twitter/X URL</Label>
+                  <Input
+                    id="twitter"
+                    type="url"
+                    value={profile.twitter_url}
+                    onChange={(e) => setProfile({ ...profile, twitter_url: e.target.value })}
+                    placeholder="https://twitter.com/username or https://x.com/username"
+                    disabled={isUpdating}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="youtube">YouTube URL</Label>
+                  <Input
+                    id="youtube"
+                    type="url"
+                    value={profile.youtube_url}
+                    onChange={(e) => setProfile({ ...profile, youtube_url: e.target.value })}
+                    placeholder="https://youtube.com/channel/..."
+                    disabled={isUpdating}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowEditDialog(false)}
+              disabled={isUpdating}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleUpdateProfile} disabled={isUpdating}>
+              {isUpdating ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                "Save Changes"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
