@@ -177,44 +177,75 @@ export const LiveStreamView: React.FC = () => {
     );
   }
 
-  // Go Live Dialog
+  // Go Live Dialog - TikTok Style
   if (isGoingLive) {
     return (
-      <div className="h-screen bg-black flex items-center justify-center p-4">
-        <Card className="w-full max-w-md p-6 space-y-4 animate-scale-in">
-          <div className="flex items-center justify-between">
-            <h2 className="text-2xl font-bold">Go Live</h2>
-            <Button size="icon" variant="ghost" onClick={() => setIsGoingLive(false)}>
-              <X className="w-5 h-5" />
-            </Button>
+      <div className="h-screen bg-black flex flex-col">
+        {/* Camera Preview Area */}
+        <div className="flex-1 relative bg-gradient-to-br from-purple-900 to-pink-900">
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="text-white text-center space-y-2">
+              <Video className="w-16 h-16 mx-auto opacity-50" />
+              <p className="text-sm opacity-75">Camera preview will appear here</p>
+            </div>
           </div>
-          <Input
-            placeholder="What's happening?"
-            value={streamTitle}
-            onChange={(e) => setStreamTitle(e.target.value)}
-            className="text-lg"
-            maxLength={100}
-          />
-          <Button onClick={startStream} className="w-full" size="lg">
-            <Video className="w-5 h-5 mr-2" />
-            Start Live Stream
+          
+          {/* Close Button */}
+          <Button 
+            size="icon" 
+            variant="ghost" 
+            className="absolute top-4 left-4 text-white"
+            onClick={() => setIsGoingLive(false)}
+          >
+            <X className="w-6 h-6" />
           </Button>
-        </Card>
+        </div>
+
+        {/* Controls */}
+        <div className="bg-background p-4 space-y-4 rounded-t-3xl">
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Stream Title</label>
+            <Input
+              placeholder="Tell viewers what you'll be doing..."
+              value={streamTitle}
+              onChange={(e) => setStreamTitle(e.target.value)}
+              className="text-base h-12"
+              maxLength={100}
+            />
+          </div>
+
+          <Button 
+            onClick={startStream} 
+            className="w-full h-14 text-lg font-semibold bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600" 
+            size="lg"
+            disabled={!streamTitle.trim()}
+          >
+            <Video className="w-5 h-5 mr-2" />
+            Go LIVE
+          </Button>
+        </div>
       </div>
     );
   }
 
-  // Main View
+  // Main View - TikTok Style
   return (
     <div className="h-screen bg-background overflow-hidden">
       <div className="p-4 space-y-4">
-        {/* Header */}
+        {/* Header with prominent Go Live */}
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold">Live</h1>
+          <div>
+            <h1 className="text-2xl font-bold">LIVE</h1>
+            <p className="text-xs text-muted-foreground">Watch live streams now</p>
+          </div>
           {user && (
-            <Button onClick={() => setIsGoingLive(true)} className="animate-fade-in">
-              <Video className="w-4 h-4 mr-2" />
-              Go Live
+            <Button 
+              onClick={() => setIsGoingLive(true)} 
+              className="h-12 px-6 animate-fade-in bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600 font-semibold"
+              size="lg"
+            >
+              <Video className="w-5 h-5 mr-2" />
+              Go LIVE
             </Button>
           )}
         </div>

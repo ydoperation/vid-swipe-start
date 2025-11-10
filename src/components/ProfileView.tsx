@@ -141,28 +141,25 @@ export const ProfileView: React.FC = () => {
     {
       icon: <Crown className="h-4 w-4" />,
       label: "Creator Fund",
-      action: () => toast({ title: "Creator Fund", description: "Earn money from your content!" }),
+      action: () => window.dispatchEvent(new CustomEvent('navigate', { detail: 'creator-fund' })),
       color: "bg-yellow-500/10 text-yellow-500"
     },
     {
       icon: <Gift className="h-4 w-4" />,
       label: "Virtual Gifts",
-      action: () => toast({ title: "Virtual Gifts", description: "Send gifts to your favorite creators!" }),
+      action: () => setActiveTab('live'),
       color: "bg-pink-500/10 text-pink-500"
     },
     {
       icon: <ShoppingBag className="h-4 w-4" />,
       label: "Shop",
-      action: () => {
-        const event = new CustomEvent('navigate', { detail: 'shop' });
-        window.dispatchEvent(event);
-      },
+      action: () => window.dispatchEvent(new CustomEvent('navigate', { detail: 'shop' })),
       color: "bg-purple-500/10 text-purple-500"
     },
     {
       icon: <TrendingUp className="h-4 w-4" />,
       label: "Analytics",
-      action: () => navigate("/analytics"),
+      action: () => window.dispatchEvent(new CustomEvent('navigate', { detail: 'analytics' })),
       color: "bg-green-500/10 text-green-500"
     },
   ];

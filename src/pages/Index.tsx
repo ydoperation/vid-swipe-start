@@ -10,6 +10,8 @@ import { SettingsView } from "@/components/SettingsView";
 import MessagesView from "@/components/MessagesView";
 import { LiveStreamView } from "@/components/LiveStreamView";
 import { PvPBattleView } from "@/components/PvPBattleView";
+import { CreatorFundView } from "@/components/CreatorFundView";
+import { UserAnalyticsView } from "@/components/UserAnalyticsView";
 
 import { mockVideos } from "@/data/mockData";
 import { useAuth } from "@/hooks/useAuth";
@@ -42,12 +44,9 @@ const Index = () => {
     }
   }, [currentVideoIndex, activeTab]);
 
-  // Listen for settings navigation from ProfileView
   useEffect(() => {
     const handleNavigate = (e: CustomEvent) => {
-      if (e.detail === 'settings') {
-        setActiveTab(e.detail);
-      }
+      setActiveTab(e.detail);
     };
     
     window.addEventListener('navigate' as any, handleNavigate);
@@ -99,6 +98,10 @@ const Index = () => {
         return <ProfileView />;
       case "settings":
         return <SettingsView onBack={() => setActiveTab('profile')} />;
+      case "creator-fund":
+        return <CreatorFundView onBack={() => setActiveTab('profile')} />;
+      case "analytics":
+        return <UserAnalyticsView onBack={() => setActiveTab('profile')} />;
       default:
         return null;
     }
